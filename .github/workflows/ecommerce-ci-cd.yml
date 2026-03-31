@@ -82,7 +82,7 @@ jobs:
           pytest -v --cov=. --cov-report=xml
       
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
 
@@ -127,7 +127,7 @@ jobs:
       
       # 步骤3: 上传数据库文件作为artifact
       - name: Upload database artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ecommerce-database
           path: ${{ env.DATABASE_NAME }}
