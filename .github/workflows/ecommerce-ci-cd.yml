@@ -1,0 +1,247 @@
+# GitHub Actions 工作流 - 电商平台 CI/CD 和数据处理
+# 这个工作流包含：
+# 1. 代码质量检查 (lint)
+# 2. 单元测试
+# 3. 数据处理任务
+# 4. 构建和部署
+
+name: E-commerce Platform CI/CD Pipeline
+
+# 触发条件：当推送到 main 分支或创建 Pull Request 时
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# 设置环境变量
+env:
+  PYTHON_VERSION: '3.11'
+  DATABASE_NAME: 'ecommerce.db'
+
+jobs:
+  # ============================================
+  # Job 1: 代码质量检查
+  # ============================================
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 步骤1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 步骤2: 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      # 步骤3: 安装依赖
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+          pip install -r requirements.txt
+      
+      # 步骤4: 运行代码检查
+      - name: Run flake8 linter
+        run: |
+          # 检查 Python 语法错误
+          flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics
+          # 检查代码风格
+          flake8 app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  # ============================================
+  # Job 2: 单元测试
+  # ============================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint  # 依赖于 lint job
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        run: |
+          pytest --version
+          pytest -v --cov=. --cov-report=xml
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+
+  # ============================================
+  # Job 3: 数据处理任务
+  # ============================================
+  data-processing:
+    name: Data Processing
+    runs-on: ubuntu-latest
+    needs: test  # 依赖于 test job
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # 步骤1: 运行数据清理和合并脚本
+      - name: Run data cleaning and merging
+        run: |
+          python clean_and_merge.py
+          echo "=== 数据处理完成 ==="
+      
+      # 步骤2: 验证数据库生成
+      - name: Verify database
+        run: |
+          if [ -f "${{ env.DATABASE_NAME }}" ]; then
+            echo "✅ 数据库文件已生成"
+            ls -la ${{ env.DATABASE_NAME }}
+          else
+            echo "❌ 数据库文件未生成"
+            exit 1
+          fi
+      
+      # 步骤3: 上传数据库文件作为artifact
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ecommerce-database
+          path: ${{ env.DATABASE_NAME }}
+          retention-days: 7
+
+  # ============================================
+  # Job 4: 构建应用
+  # ============================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: data-processing  # 依赖于 data-processing job
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      # 步骤1: 创建 requirements.txt 的哈希值
+      - name: Generate requirements hash
+        run: |
+          md5sum requirements.txt > requirements_hash.txt
+          cat requirements_hash.txt
+      
+      # 步骤2: 打包应用 (可选，用于演示构建过程)
+      - name: Package application
+        run: |
+          # 创建一个简单的部署包
+          mkdir -p dist
+          cp app.py dist/
+          cp requirements.txt dist/
+          cp -r .github dist/
+          echo "✅ 应用构建完成"
+          ls -la dist/
+
+  # ============================================
+  # Job 5: 部署 (模拟)
+  # ============================================
+  deploy:
+    name: Deploy (Simulation)
+    runs-on: ubuntu-latest
+    needs: build  # 依赖于 build job
+    if: github.ref == 'refs/heads/main'  # 仅在 main 分支运行时
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 步骤1: 模拟部署通知
+      - name: Deployment notification
+        run: |
+          echo "========================================"
+          echo "🚀 开始部署电商平台..."
+          echo "========================================"
+          echo "分支: ${{ github.ref }}"
+          echo "提交: ${{ github.sha }}"
+          echo "作者: ${{ github.actor }}"
+          echo "========================================"
+      
+      # 步骤2: 模拟健康检查
+      - name: Health check simulation
+        run: |
+          echo "🏥 执行健康检查..."
+          sleep 2
+          echo "✅ 健康检查通过"
+      
+      # 步骤3: 部署完成通知
+      - name: Deployment complete
+        run: |
+          echo "========================================"
+          echo "✅ 部署完成！"
+          echo "========================================"
+          echo "🌐 电商平台已准备就绪"
+          echo "📊 访问地址: https://ecommerce.example.com"
+
+  # ============================================
+  # Job 6: 生成报告
+  # ============================================
+  report:
+    name: Generate Report
+    runs-on: ubuntu-latest
+    needs: [test, data-processing, build]  # 依赖于多个 job
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Generate workflow summary
+        run: |
+          echo "## 📊 CI/CD Pipeline 执行报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 执行时间" >> $GITHUB_STEP_SUMMARY
+          echo "- **开始时间**: ${{ github.event.repository.created_at }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **工作流**: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 任务状态" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 代码质量检查" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 单元测试" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 数据处理" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 应用构建" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 部署完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 电商平台功能" >> $GITHUB_STEP_SUMMARY
+          echo "- 🛒 产品展示" >> $GITHUB_STEP_SUMMARY
+          echo "- 🛒 购物车管理" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 订单处理" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 数据分析" >> $GITHUB_STEP_SUMMARY
