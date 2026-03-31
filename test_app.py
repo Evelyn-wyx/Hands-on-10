@@ -61,7 +61,8 @@ def test_home_page(client):
     """测试首页访问"""
     response = client.get('/')
     assert response.status_code == 200
-    assert b'电商平台' in response.data
+    # 使用 UTF-8 解码
+    assert '电商平台'.encode('utf-8') in response.data
 
 
 def test_cart_page(client):
